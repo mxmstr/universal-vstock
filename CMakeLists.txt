@@ -57,5 +57,13 @@ install(TARGETS driver_universal_vstock
 # file(COPY driver.vrdrivermanifest DESTINATION ${CMAKE_BINARY_DIR})
 # install(FILES driver.vrdrivermanifest DESTINATION share/driver_universal_vstock)
 
+# Add the VirtualGunstockUI subdirectory
+add_subdirectory(VirtualGunstockUI)
+
+# Install the client application (optional, but good for packaging)
+# Ensure this target name matches the one in VirtualGunstockUI/CMakeLists.txt
+install(TARGETS VirtualGunstockUI RUNTIME DESTINATION bin)
+
+
 message(STATUS "OpenVR SDK Path: ${OPENVR_INCLUDE_DIR}")
 message(STATUS "Driver sources: ${DRIVER_SOURCES}")
