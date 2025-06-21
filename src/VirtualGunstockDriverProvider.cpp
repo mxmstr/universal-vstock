@@ -1,7 +1,9 @@
 #include "VirtualGunstockDriverProvider.h"
+#include "VirtualDevice.h" // Added
 #include "openvr_driver.h" // For VR_INIT_SERVER_DRIVER_CONTEXT, k_InterfaceVersions, DriverPose_t, VRServerDriverHost
 #include <cstdint> // For uint32_t
 #include "IPCUtils.h" // Include for IPC functions
+#include <string> // For std::string comparison
 
 VirtualGunstockDriverProvider g_driverProvider;
 
@@ -9,11 +11,28 @@ vr::EVRInitError VirtualGunstockDriverProvider::Init(vr::IVRDriverContext *pDriv
 {
     VR_INIT_SERVER_DRIVER_CONTEXT(pDriverContext);
     InitializeIPC(); // Initialize IPC
+
+    const char* right_vstock_serial = "vstock_override_right_01";
+    const char* left_vstock_serial = "vstock_override_left_01";
+
+    auto rightDevice = std::make_unique<VirtualDevice>(right_vstock_serial, vr::ETrackedDeviceClass::TrackedDeviceClass_Controller);
+    if (vr::VRServerDriverHost()) { // Good practice to check if VRServerDriverHost is available
+        vr::VRServerDriverHost()->TrackedDeviceAdded(rightDevice->GetSerialNumber().c_str(), vr::ETrackedDeviceClass::TrackedDeviceClass_Controller, rightDevice.get());
+    }
+    m_vecVirtualDevices.push_back(std::move(rightDevice));
+
+    auto leftDevice = std::make_unique<VirtualDevice>(left_vstock_serial, vr::ETrackedDeviceClass::TrackedDeviceClass_Controller);
+    if (vr::VRServerDriverHost()) {
+        vr::VRServerDriverHost()->TrackedDeviceAdded(leftDevice->GetSerialNumber().c_str(), vr::ETrackedDeviceClass::TrackedDeviceClass_Controller, leftDevice.get());
+    }
+    m_vecVirtualDevices.push_back(std::move(leftDevice));
+
     return vr::VRInitError_None;
 }
 
 void VirtualGunstockDriverProvider::Cleanup()
 {
+    m_vecVirtualDevices.clear(); // Clear devices first
     CleanupIPC(); // Cleanup IPC
 }
 
@@ -24,27 +43,22 @@ const char * const *VirtualGunstockDriverProvider::GetInterfaceVersions()
 
 void VirtualGunstockDriverProvider::RunFrame()
 {
-    // --- TODO: Check IPC for a new pose from the UI App ---
-    /*
-    struct PoseUpdateData {
-        bool shouldUpdate;
-        uint32_t deviceId; // Or some other identifier for your tracked device
-        vr::DriverPose_t pose;
-    };
-    */
-
     // Read the data from shared memory (with proper synchronization like a mutex!)
     PoseUpdateData data = ReadFromSharedMemory();
 
-    // if (data.shouldUpdate)
-    // {
-    //     // Ensure deviceId is valid and corresponds to a device you've added
-    //     vr::VRServerDriverHost()->TrackedDevicePoseUpdated(data.deviceId, data.pose, sizeof(vr::DriverPose_t));
-    //
-    //     // Reset the flag in shared memory so we don't update again next frame
-    //     // data.shouldUpdate = false;
-    //     WriteToSharedMemory(data); // Write updated data (e.g., shouldUpdate = false)
-    // }
+    if (data.shouldUpdate)
+    {
+        for (auto& device : m_vecVirtualDevices) {
+            // Assuming PoseUpdateData.serialNumberToUpdate is compatible with std::string comparison
+            if (device && device->GetSerialNumber() == data.serialNumberToUpdate) {
+                device->UpdatePose(data.pose);
+                // data.shouldUpdate = false; // Typically reset after processing, if this is the sole handler for the update.
+                break; // Assuming one update per frame for a specific serial
+            }
+        }
+        // If data.shouldUpdate was potentially modified and needs to be written back:
+        // WriteToSharedMemory(data);
+    }
 }
 
 bool VirtualGunstockDriverProvider::ShouldBlockStandbyMode()
