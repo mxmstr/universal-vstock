@@ -15,15 +15,15 @@ vr::EVRInitError VirtualGunstockDriverProvider::Init(vr::IVRDriverContext *pDriv
     const char* right_vstock_serial = "vstock_override_right_01";
     const char* left_vstock_serial = "vstock_override_left_01";
 
-    auto rightDevice = std::make_unique<VirtualDevice>(right_vstock_serial, vr::ETrackedDeviceClass::Controller);
+    auto rightDevice = std::make_unique<VirtualDevice>(right_vstock_serial, vr::ETrackedDeviceClass::TrackedDeviceClass_Controller);
     if (vr::VRServerDriverHost()) { // Good practice to check if VRServerDriverHost is available
-        vr::VRServerDriverHost()->AddTrackedDevice(rightDevice->GetSerialNumber().c_str(), vr::ETrackedDeviceClass::Controller, rightDevice.get());
+        vr::VRServerDriverHost()->TrackedDeviceAdded(rightDevice->GetSerialNumber().c_str(), vr::ETrackedDeviceClass::TrackedDeviceClass_Controller, rightDevice.get());
     }
     m_vecVirtualDevices.push_back(std::move(rightDevice));
 
-    auto leftDevice = std::make_unique<VirtualDevice>(left_vstock_serial, vr::ETrackedDeviceClass::Controller);
+    auto leftDevice = std::make_unique<VirtualDevice>(left_vstock_serial, vr::ETrackedDeviceClass::TrackedDeviceClass_Controller);
     if (vr::VRServerDriverHost()) {
-        vr::VRServerDriverHost()->AddTrackedDevice(leftDevice->GetSerialNumber().c_str(), vr::ETrackedDeviceClass::Controller, leftDevice.get());
+        vr::VRServerDriverHost()->TrackedDeviceAdded(leftDevice->GetSerialNumber().c_str(), vr::ETrackedDeviceClass::TrackedDeviceClass_Controller, leftDevice.get());
     }
     m_vecVirtualDevices.push_back(std::move(leftDevice));
 
