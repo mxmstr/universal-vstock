@@ -1,0 +1,16 @@
+{
+    "manifest_version": 1,
+    "driver_name": "driver_example",
+    "driver_version": "1.0.0.0",
+    "binaries": {
+        "win64": "bin/win64/driver_example.dll",
+        "linux64": "bin/linux64/libdriver_example.so",
+        "osx": "bin/osx/libdriver_example.dylib"
+    },
+    "driver_path": {
+        "win64": "bin/win64",
+        "linux64": "bin/linux64",
+        "osx": "bin/osx"
+    },
+    "resource_path": "resources"
+}
