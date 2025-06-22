@@ -1,69 +1,59 @@
 cmake_minimum_required(VERSION 3.10)
-project(OpenVRDriverExample LANGUAGES CXX)
+project(VirtualGunstockSystem LANGUAGES CXX) # Renamed project for clarity
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Add OpenVR submodule
+# --- OpenVR Submodule ---
+# Add OpenVR submodule. It's assumed this creates a target (e.g., openvr_api or similar).
+# We will create an interface library OpenVR::openvr to abstract the actual target name.
 add_subdirectory(openvr)
 
-# Include directories
-include_directories(
-    openvr/headers
-    openvr/samples/drivers/utils/driverlog
-    openvr/samples/drivers/utils/vrmath
-    include
-)
-
-# Source files
-file(GLOB DRIVER_SOURCES "src/*")
-file(GLOB DRIVER_HEADERS "include/*")
-
-# Create the driver library
-add_library(driver_universal_vstock SHARED 
-    ${DRIVER_SOURCES}
-    ${DRIVER_HEADERS}
-)
-
-# Link against OpenVR
-target_link_libraries(driver_universal_vstock PRIVATE ${OpenVR_LIBRARIES})
-
-# Define platform-specific properties
-if(WIN32)
-    set_target_properties(driver_universal_vstock PROPERTIES SUFFIX ".dll")
-    target_compile_definitions(driver_universal_vstock PRIVATE "WIN32" "_WINDOWS" "CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS")
-elseif(LINUX)
-    set_target_properties(driver_universal_vstock PROPERTIES PREFIX "lib" SUFFIX ".so")
-    target_compile_options(driver_universal_vstock PRIVATE -fPIC)
-elseif(APPLE)
-    set_target_properties(driver_universal_vstock PROPERTIES SUFFIX ".dylib")
-    target_compile_options(driver_universal_vstock PRIVATE -fPIC)
+# Create an interface library for OpenVR.
+# This provides a consistent way for subprojects to link against OpenVR.
+# Replace 'openvr_api' with the actual target name created by add_subdirectory(openvr) if different.
+# If openvr/CMakeLists.txt itself defines OpenVR::OpenVR or openvr::openvr, this might not be needed
+# or would alias that. For now, we assume a target 'openvr_api' is created.
+if(TARGET openvr_api)
+    add_library(OpenVR::openvr INTERFACE IMPORTED GLOBAL)
+    target_link_libraries(OpenVR::openvr INTERFACE openvr_api)
+    # If openvr_api doesn't propagate include directories, uncomment and adjust:
+    # target_include_directories(OpenVR::openvr INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/openvr/headers)
+else()
+    # Fallback: If no clear target from add_subdirectory(openvr), create a simple interface
+    # This assumes OpenVR headers are in openvr/headers and a library might be found or built.
+    # This part would need more robust handling if 'openvr_api' target doesn't exist.
+    add_library(OpenVR::openvr INTERFACE)
+    target_include_directories(OpenVR::openvr INTERFACE
+        "${CMAKE_CURRENT_SOURCE_DIR}/openvr/headers"
+        "${CMAKE_CURRENT_SOURCE_DIR}/openvr/samples/drivers/utils/driverlog" # Example, adjust if needed
+        "${CMAKE_CURRENT_SOURCE_DIR}/openvr/samples/drivers/utils/vrmath"    # Example, adjust if needed
+    )
+    # If OpenVR provides a pre-compiled library or 'add_subdirectory(openvr)' builds one with a known name:
+    # target_link_libraries(OpenVR::openvr INTERFACE NameOfOpenVRLibraryTarget)
+    message(WARNING "OpenVR target 'openvr_api' not found after add_subdirectory(openvr). OpenVR::openvr interface created with default include paths. Linking might require manual setup if OpenVR isn't built as a library by the submodule's CMake.")
 endif()
 
-# Installation
-# This part might need adjustment based on SteamVR's expected driver structure
-# and the target operating system.
-# For now, we'll just define an install target for the library.
-install(TARGETS driver_universal_vstock
-    LIBRARY DESTINATION lib/driver_universal_vstock
-    RUNTIME DESTINATION bin/driver_universal_vstock
-)
 
-# Add a custom build step to copy resources (if any)
-# file(COPY resources/ DESTINATION ${CMAKE_BINARY_DIR}/resources)
-# install(DIRECTORY resources/ DESTINATION share/driver_universal_vstock/resources)
-
-# Add a custom build step to copy the driver manifest
-# file(COPY driver.vrdrivermanifest DESTINATION ${CMAKE_BINARY_DIR})
-# install(FILES driver.vrdrivermanifest DESTINATION share/driver_universal_vstock)
-
-# Add the VirtualGunstockUI subdirectory
+# --- Add Subprojects ---
+# The VirtualGunstockUI subproject provides VirtualGunstockUI_lib (for IPC) and the UI executable
 add_subdirectory(VirtualGunstockUI)
 
-# Install the client application (optional, but good for packaging)
-# Ensure this target name matches the one in VirtualGunstockUI/CMakeLists.txt
-install(TARGETS VirtualGunstockUI RUNTIME DESTINATION bin)
+# The driver subproject provides the VirtualGunstockDriver library
+add_subdirectory(driver)
 
 
-message(STATUS "OpenVR SDK Path: ${OPENVR_INCLUDE_DIR}")
-message(STATUS "Driver sources: ${DRIVER_SOURCES}")
+# --- Installation ---
+# Installation for VirtualGunstockUI (executable)
+# The target VirtualGunstockUI must be defined in VirtualGunstockUI/CMakeLists.txt
+# The driver installation is handled within driver/CMakeLists.txt
+if(TARGET VirtualGunstockUI)
+    install(TARGETS VirtualGunstockUI RUNTIME DESTINATION bin)
+else()
+    message(WARNING "Target VirtualGunstockUI not found for installation. Check VirtualGunstockUI/CMakeLists.txt.")
+endif()
+
+message(STATUS "Project ${PROJECT_NAME} configured. Build with your chosen generator.")
+message(STATUS "OpenVR submodule expected to provide its targets (e.g., 'openvr_api' or similar).")
+message(STATUS "Driver: target 'VirtualGunstockDriver' in driver/")
+message(STATUS "UI: target 'VirtualGunstockUI' and 'VirtualGunstockUI_lib' in VirtualGunstockUI/")
