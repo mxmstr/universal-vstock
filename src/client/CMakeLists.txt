@@ -17,9 +17,33 @@ add_executable(OpenVRClient ${CLIENT_SOURCES})
 # If main.cpp needs direct access to headers in src/client (if any besides main.cpp)
 # target_include_directories(OpenVRClient PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
+# Deps
+set(OPENVR_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/openvr/headers")
+
+set(SIZEOF_VOIDP ${CMAKE_SIZEOF_VOID_P})
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(PROCESSOR_ARCH "64")
+else()
+    set(PROCESSOR_ARCH "32")
+endif()
+
+if(WIN32)
+    set(PLATFORM_NAME "win")
+elseif(UNIX AND NOT APPLE)
+    set(PLATFORM_NAME "linux")
+elseif(APPLE)
+    set(PLATFORM_NAME "osx")
+endif()
+
+find_library(OPENVR_LIB openvr_api HINTS "${CMAKE_CURRENT_SOURCE_DIR}/openvr/lib/${PLATFORM_NAME}${PROCESSOR_ARCH}/" NO_DEFAULT_PATH )
+
+target_link_libraries(OpenVRClient PUBLIC "${OPENVR_LIB}")
+
+include_directories("${CMAKE_SOURCE_DIR}/openvr/headers")
+
 # Link against OpenVR and IPCUtils
 target_link_libraries(OpenVRClient PRIVATE
-    OpenVR::openvr_api # Provided by the OpenVR submodule
+    #openvr_api # Provided by the OpenVR submodule
     IPCUtils           # Our static IPC library
 )
 

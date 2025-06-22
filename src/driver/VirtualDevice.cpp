@@ -1,6 +1,5 @@
 // VirtualDevice.cpp
 #include "VirtualDevice.h"
-#include "openvr_driver.h" // Required for vr::TrackingResult_Uninitialized, vr::k_unTrackedDeviceIndexInvalid etc.
 
 
 VirtualDevice::VirtualDevice(std::string serialNumber, vr::ETrackedDeviceClass deviceClass) {

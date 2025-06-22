@@ -13,6 +13,27 @@ set(DRIVER_SOURCES
     "VirtualGunstockDriverProvider.h"
 )
 
+# Deps
+set(OPENVR_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/openvr/headers")
+
+set(SIZEOF_VOIDP ${CMAKE_SIZEOF_VOID_P})
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(PROCESSOR_ARCH "64")
+else()
+    set(PROCESSOR_ARCH "32")
+endif()
+
+if(WIN32)
+    set(PLATFORM_NAME "win")
+elseif(UNIX AND NOT APPLE)
+    set(PLATFORM_NAME "linux")
+elseif(APPLE)
+    set(PLATFORM_NAME "osx")
+endif()
+
+find_library(OPENVR_LIB openvr_api HINTS "${CMAKE_CURRENT_SOURCE_DIR}/openvr/lib/${PLATFORM_NAME}${PROCESSOR_ARCH}/" NO_DEFAULT_PATH )
+
+
 # Create the driver library
 add_library(VirtualGunstockDriver SHARED ${DRIVER_SOURCES})
 
@@ -22,9 +43,13 @@ target_include_directories(VirtualGunstockDriver PUBLIC
     # OpenVR::openvr_api and IPCUtils will propagate their include directories
 )
 
+include_directories("${CMAKE_SOURCE_DIR}/openvr/headers")
+
+target_link_libraries(VirtualGunstockDriver PUBLIC "${OPENVR_LIB}")
+
 # Link against OpenVR and IPCUtils
 target_link_libraries(VirtualGunstockDriver PRIVATE
-    OpenVR::openvr_api # Provided by the OpenVR submodule, aliased in root CMakeLists.txt if needed
+    #openvr_api # Provided by the OpenVR submodule, aliased in root CMakeLists.txt if needed
     IPCUtils           # Our static IPC library
 )
 

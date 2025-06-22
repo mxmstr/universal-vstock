@@ -51,7 +51,7 @@ void VirtualGunstockDriverProvider::RunFrame()
         for (auto& device : m_vecVirtualDevices) {
             // Assuming PoseUpdateData.serialNumberToUpdate is compatible with std::string comparison
             if (device && device->GetSerialNumber() == data.serialNumberToUpdate) {
-                device->UpdatePose(data.pose);
+                device->UpdatePose(*reinterpret_cast<vr::DriverPose_t*>(&data.pose));
                 // data.shouldUpdate = false; // Typically reset after processing, if this is the sole handler for the update.
                 break; // Assuming one update per frame for a specific serial
             }

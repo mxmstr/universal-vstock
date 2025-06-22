@@ -9,6 +9,8 @@ add_library(IPCUtils STATIC
     IPCUtils.cpp
 )
 
+include_directories("${CMAKE_SOURCE_DIR}/openvr/headers")
+
 # Define public headers
 target_include_directories(IPCUtils PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}"

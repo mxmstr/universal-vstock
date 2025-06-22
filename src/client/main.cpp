@@ -4,17 +4,95 @@
 #include <chrono>
 #include <vector>
 
+//#include <openvr_driver.h>
 #include <openvr.h>
 #include "IPCUtils.h" // Will be created in a later step
-#include "PoseUpdateData.h" // Will be created in a later step
+//#include "PoseUpdateData.h" // Will be created in a later step
 
-// Helper function to convert HmdMatrix34_t to DriverPose_t
-// Forward declaration, will be implemented later
-vr::DriverPose_t ConvertMatrixToDriverPose(const vr::HmdMatrix34_t& matrix);
 
-// Helper function to get user-configured offset
-// Forward declaration, will be implemented later
-vr::HmdMatrix34_t GetUserConfiguredOffset();
+// Placeholder for GetUserConfiguredOffset
+vr::HmdMatrix34_t GetUserConfiguredOffset() {
+    vr::HmdMatrix34_t offset_matrix;
+    // Example: Off-hand is 10cm in front of dominant hand, rotated slightly.
+    // This is an identity matrix for now (no offset).
+    // Row-major order:
+    // m[row][column]
+    offset_matrix.m[0][0] = 1.0f; offset_matrix.m[0][1] = 0.0f; offset_matrix.m[0][2] = 0.0f; offset_matrix.m[0][3] = 0.0f; // X translation
+    offset_matrix.m[1][0] = 0.0f; offset_matrix.m[1][1] = 1.0f; offset_matrix.m[1][2] = 0.0f; offset_matrix.m[1][3] = 0.0f; // Y translation
+    offset_matrix.m[2][0] = 0.0f; offset_matrix.m[2][1] = 0.0f; offset_matrix.m[2][2] = 1.0f; offset_matrix.m[2][3] = 0.1f; // Z translation (10 cm forward)
+    return offset_matrix;
+}
+
+// Implementation for ConvertMatrixToDriverPose
+// Adapted from OpenVR examples or common utilities
+void HmdMatrix_SetIdentity(vr::HmdMatrix34_t* pMatrix)
+{
+    pMatrix->m[0][0] = 1.f;
+    pMatrix->m[0][1] = 0.f;
+    pMatrix->m[0][2] = 0.f;
+    pMatrix->m[0][3] = 0.f;
+    pMatrix->m[1][0] = 0.f;
+    pMatrix->m[1][1] = 1.f;
+    pMatrix->m[1][2] = 0.f;
+    pMatrix->m[1][3] = 0.f;
+    pMatrix->m[2][0] = 0.f;
+    pMatrix->m[2][1] = 0.f;
+    pMatrix->m[2][2] = 1.f;
+    pMatrix->m[2][3] = 0.f;
+}
+
+vr::HmdQuaternion2_t GetRotation(const vr::HmdMatrix34_t& matrix) {
+    vr::HmdQuaternion2_t q;
+
+    q.w = sqrt(fmax(0, 1 + matrix.m[0][0] + matrix.m[1][1] + matrix.m[2][2])) / 2;
+    q.x = sqrt(fmax(0, 1 + matrix.m[0][0] - matrix.m[1][1] - matrix.m[2][2])) / 2;
+    q.y = sqrt(fmax(0, 1 - matrix.m[0][0] + matrix.m[1][1] - matrix.m[2][2])) / 2;
+    q.z = sqrt(fmax(0, 1 - matrix.m[0][0] - matrix.m[1][1] + matrix.m[2][2])) / 2;
+
+    q.x = copysign(q.x, matrix.m[2][1] - matrix.m[1][2]);
+    q.y = copysign(q.y, matrix.m[0][2] - matrix.m[2][0]);
+    q.z = copysign(q.z, matrix.m[1][0] - matrix.m[0][1]);
+
+    return q;
+}
+
+
+
+vr::DriverPose2_t ConvertMatrixToDriverPose(const vr::HmdMatrix34_t& matrix) {
+    vr::DriverPose2_t pose = { 0 };
+
+    pose.vecPosition[0] = matrix.m[0][3];
+    pose.vecPosition[1] = matrix.m[1][3];
+    pose.vecPosition[2] = matrix.m[2][3];
+
+    pose.qRotation = GetRotation(matrix);
+
+    // Set some defaults, can be overridden by the caller
+    pose.poseIsValid = true;
+    pose.result = vr::ETrackingResult2::ETrackingResult_TrackingResult_Running_OK;
+    pose.deviceIsConnected = true; // Assuming if we have a pose, it's connected
+
+    // Velocities and accelerations are not derived from the matrix alone.
+    // They should be copied from the source pose (e.g., dominant hand) if needed.
+    // For now, initialize to zero.
+    pose.vecVelocity[0] = 0; pose.vecVelocity[1] = 0; pose.vecVelocity[2] = 0;
+    pose.vecAngularVelocity[0] = 0; pose.vecAngularVelocity[1] = 0; pose.vecAngularVelocity[2] = 0;
+    pose.vecAcceleration[0] = 0; pose.vecAcceleration[1] = 0; pose.vecAcceleration[2] = 0;
+    pose.vecAngularAcceleration[0] = 0; pose.vecAngularAcceleration[1] = 0; pose.vecAngularAcceleration[2] = 0;
+
+    pose.qWorldFromDriverRotation.w = 1;
+    pose.qWorldFromDriverRotation.x = 0;
+    pose.qWorldFromDriverRotation.y = 0;
+    pose.qWorldFromDriverRotation.z = 0;
+
+    pose.qDriverFromHeadRotation.w = 1;
+    pose.qDriverFromHeadRotation.x = 0;
+    pose.qDriverFromHeadRotation.y = 0;
+    pose.qDriverFromHeadRotation.z = 0;
+
+
+    return pose;
+}
 
 // Helper function to get the serial number of a tracked device
 std::string GetTrackedDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL)
@@ -126,7 +204,7 @@ int main() {
 
                 data_to_send.pose = ConvertMatrixToDriverPose(new_off_hand_pose_matrix);
                 data_to_send.pose.poseIsValid = true;
-                data_to_send.pose.result = vr::TrackingResult_Running_OK;
+                data_to_send.pose.result = vr::ETrackingResult2::ETrackingResult_TrackingResult_Running_OK;
 
                 // Copy velocity and angular velocity from the dominant hand's pose
                 // This makes the off-hand appear to move rigidly with the dominant hand
@@ -175,84 +253,3 @@ int main() {
     return 0;
 }
 
-// Placeholder for GetUserConfiguredOffset
-vr::HmdMatrix34_t GetUserConfiguredOffset() {
-    vr::HmdMatrix34_t offset_matrix;
-    // Example: Off-hand is 10cm in front of dominant hand, rotated slightly.
-    // This is an identity matrix for now (no offset).
-    // Row-major order:
-    // m[row][column]
-    offset_matrix.m[0][0] = 1.0f; offset_matrix.m[0][1] = 0.0f; offset_matrix.m[0][2] = 0.0f; offset_matrix.m[0][3] = 0.0f; // X translation
-    offset_matrix.m[1][0] = 0.0f; offset_matrix.m[1][1] = 1.0f; offset_matrix.m[1][2] = 0.0f; offset_matrix.m[1][3] = 0.0f; // Y translation
-    offset_matrix.m[2][0] = 0.0f; offset_matrix.m[2][1] = 0.0f; offset_matrix.m[2][2] = 1.0f; offset_matrix.m[2][3] = 0.1f; // Z translation (10 cm forward)
-    return offset_matrix;
-}
-
-// Implementation for ConvertMatrixToDriverPose
-// Adapted from OpenVR examples or common utilities
-void HmdMatrix_SetIdentity(vr::HmdMatrix34_t *pMatrix)
-{
-	pMatrix->m[0][0] = 1.f;
-	pMatrix->m[0][1] = 0.f;
-	pMatrix->m[0][2] = 0.f;
-	pMatrix->m[0][3] = 0.f;
-	pMatrix->m[1][0] = 0.f;
-	pMatrix->m[1][1] = 1.f;
-	pMatrix->m[1][2] = 0.f;
-	pMatrix->m[1][3] = 0.f;
-	pMatrix->m[2][0] = 0.f;
-	pMatrix->m[2][1] = 0.f;
-	pMatrix->m[2][2] = 1.f;
-	pMatrix->m[2][3] = 0.f;
-}
-
-vr::HmdQuaternion_t GetRotation(const vr::HmdMatrix34_t& matrix) {
-    vr::HmdQuaternion_t q;
-
-    q.w = sqrt(fmax(0, 1 + matrix.m[0][0] + matrix.m[1][1] + matrix.m[2][2])) / 2;
-    q.x = sqrt(fmax(0, 1 + matrix.m[0][0] - matrix.m[1][1] - matrix.m[2][2])) / 2;
-    q.y = sqrt(fmax(0, 1 - matrix.m[0][0] + matrix.m[1][1] - matrix.m[2][2])) / 2;
-    q.z = sqrt(fmax(0, 1 - matrix.m[0][0] - matrix.m[1][1] + matrix.m[2][2])) / 2;
-
-    q.x = copysign(q.x, matrix.m[2][1] - matrix.m[1][2]);
-    q.y = copysign(q.y, matrix.m[0][2] - matrix.m[2][0]);
-    q.z = copysign(q.z, matrix.m[1][0] - matrix.m[0][1]);
-
-    return q;
-}
-
-vr::DriverPose_t ConvertMatrixToDriverPose(const vr::HmdMatrix34_t& matrix) {
-    vr::DriverPose_t pose = {0};
-
-    pose.vecPosition[0] = matrix.m[0][3];
-    pose.vecPosition[1] = matrix.m[1][3];
-    pose.vecPosition[2] = matrix.m[2][3];
-
-    pose.qRotation = GetRotation(matrix);
-
-    // Set some defaults, can be overridden by the caller
-    pose.poseIsValid = true;
-    pose.result = vr::TrackingResult_Running_OK;
-    pose.deviceIsConnected = true; // Assuming if we have a pose, it's connected
-
-    // Velocities and accelerations are not derived from the matrix alone.
-    // They should be copied from the source pose (e.g., dominant hand) if needed.
-    // For now, initialize to zero.
-    pose.vecVelocity[0] = 0; pose.vecVelocity[1] = 0; pose.vecVelocity[2] = 0;
-    pose.vecAngularVelocity[0] = 0; pose.vecAngularVelocity[1] = 0; pose.vecAngularVelocity[2] = 0;
-    pose.vecAcceleration[0] = 0; pose.vecAcceleration[1] = 0; pose.vecAcceleration[2] = 0;
-    pose.vecAngularAcceleration[0] = 0; pose.vecAngularAcceleration[1] = 0; pose.vecAngularAcceleration[2] = 0;
-
-    pose.qWorldFromDriverRotation.w = 1;
-	pose.qWorldFromDriverRotation.x = 0;
-	pose.qWorldFromDriverRotation.y = 0;
-	pose.qWorldFromDriverRotation.z = 0;
-
-	pose.qDriverFromHeadRotation.w = 1;
-	pose.qDriverFromHeadRotation.x = 0;
-	pose.qDriverFromHeadRotation.y = 0;
-	pose.qDriverFromHeadRotation.z = 0;
-
-
-    return pose;
-}
