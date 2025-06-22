@@ -6,7 +6,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Define the library
 add_library(IPCUtils STATIC
+    GunstockConfigData.h
     IPCUtils.cpp
+    IPCUtils.h
 )
 
 include_directories("${CMAKE_SOURCE_DIR}/openvr/headers")

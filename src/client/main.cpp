@@ -1,14 +1,14 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <openvr.h> // For HmdMatrix34_t
+//#include <openvr.h> // For HmdMatrix34_t
 #include "../IPC/IPCUtils.h" // Adjusted path
 #include "../IPC/GunstockConfigData.h" // Adjusted path
 
 // Placeholder for getting user-configured offset from a UI
 // For now, it returns a hardcoded offset.
-vr::HmdMatrix34_t GetUserConfiguredOffsetFromUI() {
-    vr::HmdMatrix34_t offset_matrix;
+vr::HmdMatrix34_2_t GetUserConfiguredOffsetFromUI() {
+    vr::HmdMatrix34_2_t offset_matrix;
     // Initialize to identity
     offset_matrix.m[0][0] = 1.0f; offset_matrix.m[0][1] = 0.0f; offset_matrix.m[0][2] = 0.0f; offset_matrix.m[0][3] = 0.0f;
     offset_matrix.m[1][0] = 0.0f; offset_matrix.m[1][1] = 1.0f; offset_matrix.m[1][2] = 0.0f; offset_matrix.m[1][3] = 0.0f;

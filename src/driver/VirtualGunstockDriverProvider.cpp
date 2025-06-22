@@ -1,6 +1,6 @@
 #include "VirtualGunstockDriverProvider.h"
 #include "VirtualDevice.h"
-#include "openvr_driver.h"
+//#include "openvr_driver.h"
 #include <cstdint>
 #include "../IPC/IPCUtils.h" // Ensure this path is correct for IPCUtils.h
 // GunstockConfigData.h is included via VirtualGunstockDriverProvider.h
@@ -25,17 +25,17 @@ vr::EVRInitError VirtualGunstockDriverProvider::Init(vr::IVRDriverContext *pDriv
     m_unLeftControllerIndex = vr::k_unTrackedDeviceIndexInvalid;
 
     // Create your virtual devices
-    m_vecVirtualDevices.push_back(std::make_unique<VirtualDevice>("vstock_override_right_01", vr::ETrackedDeviceClass::Controller));
+    m_vecVirtualDevices.push_back(std::make_unique<VirtualDevice>("vstock_override_right_01", vr::ETrackedDeviceClass::TrackedDeviceClass_Controller));
     if (vr::VRServerDriverHost()) {
-        vr::VRServerDriverHost()->TrackedDeviceAdded(m_vecVirtualDevices[0]->GetSerialNumber().c_str(), vr::ETrackedDeviceClass::Controller, m_vecVirtualDevices[0].get());
+        vr::VRServerDriverHost()->TrackedDeviceAdded(m_vecVirtualDevices[0]->GetSerialNumber().c_str(), vr::ETrackedDeviceClass::TrackedDeviceClass_Controller, m_vecVirtualDevices[0].get());
     } else {
         if(vr::VRDriverLog()) vr::VRDriverLog()->Log("VirtualGunstockDriverProvider: VRServerDriverHost is null during right device add.");
         return vr::VRInitError_Init_InvalidInterface;
     }
 
-    m_vecVirtualDevices.push_back(std::make_unique<VirtualDevice>("vstock_override_left_01", vr::ETrackedDeviceClass::Controller));
+    m_vecVirtualDevices.push_back(std::make_unique<VirtualDevice>("vstock_override_left_01", vr::ETrackedDeviceClass::TrackedDeviceClass_Controller));
     if (vr::VRServerDriverHost()) {
-        vr::VRServerDriverHost()->TrackedDeviceAdded(m_vecVirtualDevices[1]->GetSerialNumber().c_str(), vr::ETrackedDeviceClass::Controller, m_vecVirtualDevices[1].get());
+        vr::VRServerDriverHost()->TrackedDeviceAdded(m_vecVirtualDevices[1]->GetSerialNumber().c_str(), vr::ETrackedDeviceClass::TrackedDeviceClass_Controller, m_vecVirtualDevices[1].get());
     } else {
         if(vr::VRDriverLog()) vr::VRDriverLog()->Log("VirtualGunstockDriverProvider: VRServerDriverHost is null during left device add.");
         return vr::VRInitError_Init_InvalidInterface;
@@ -48,7 +48,7 @@ vr::EVRInitError VirtualGunstockDriverProvider::Init(vr::IVRDriverContext *pDriv
 
     // Initialize default config
     m_config.config_updated = false;
-    MatrixSetIdentity(&m_config.offset_matrix);
+    MatrixSetIdentity(reinterpret_cast<vr::HmdMatrix34_t*>(&m_config.offset_matrix));
     m_config.offset_matrix.m[2][3] = 0.1f; // 10cm forward example
 
     return vr::VRInitError_None;
@@ -137,7 +137,7 @@ void VirtualGunstockDriverProvider::RunFrame()
     if (isGunstockActive)
     {
         vr::HmdMatrix34_t dominant_hand_hmd_matrix = physicalRightControllerPose.mDeviceToAbsoluteTracking;
-        vr::HmdMatrix34_t new_off_hand_hmd_matrix = MultiplyMatrices(dominant_hand_hmd_matrix, m_config.offset_matrix);
+        vr::HmdMatrix34_t new_off_hand_hmd_matrix = MultiplyMatrices(dominant_hand_hmd_matrix, *reinterpret_cast<vr::HmdMatrix34_t*>(&m_config.offset_matrix));
 
         vr::DriverPose_t newOffHandDriverPose = ConvertHmdMatrix34ToDriverPose(new_off_hand_hmd_matrix);
 
