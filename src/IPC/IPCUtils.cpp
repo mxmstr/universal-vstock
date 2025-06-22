@@ -1,7 +1,8 @@
-#include "IPCUtils.h" // Adjusted path
+#include "IPCUtils.h"
 #include <windows.h>
 #include <string>
 #include <iostream> // For placeholder messages, remove in actual implementation
+#include "GunstockConfigData.h" // Make sure this is included if not pulled by IPCUtils.h
 
 // Define the global mutex
 std::mutex g_sharedMemoryMutex;
@@ -9,8 +10,8 @@ std::mutex g_sharedMemoryMutex;
 // Global variables for shared memory handles and configuration
 HANDLE hMapFile_ = nullptr;
 LPVOID pBuf_ = nullptr;
-const wchar_t* szName_ = L"PoseUpdateSharedMemory";
-const DWORD dwSize_ = sizeof(PoseUpdateData);
+const wchar_t* szName_ = L"GunstockConfigSharedMemory"; // Changed name for clarity
+const DWORD dwSize_ = sizeof(GunstockConfigData); // Changed to use GunstockConfigData
 
 void InitializeIPC() {
     hMapFile_ = CreateFileMappingW(
@@ -39,7 +40,7 @@ void InitializeIPC() {
         return;
     }
 
-    printf("IPC Initialized successfully. Shared memory created/opened.\n");
+    printf("IPC Initialized successfully. Shared memory for GunstockConfig created/opened.\n");
 }
 
 void CleanupIPC() {
@@ -65,27 +66,29 @@ void CleanupIPC() {
     }
 }
 
-PoseUpdateData ReadFromSharedMemory() {
-    PoseUpdateData data;
-    data.shouldUpdate = false; // Default to no update
+GunstockConfigData ReadFromSharedMemory() {
+    GunstockConfigData data;
+    // Initialize with default values, especially config_updated to false
+    memset(&data, 0, sizeof(GunstockConfigData)); // Zero out the struct
+    data.config_updated = false;
 
     std::lock_guard<std::mutex> lock(g_sharedMemoryMutex);
 
     if (pBuf_ != nullptr) {
-        memcpy(&data, pBuf_, sizeof(PoseUpdateData));
+        memcpy(&data, pBuf_, sizeof(GunstockConfigData));
     } else {
-        fprintf(stderr, "Shared memory not mapped, cannot read.\n");
-        // data.shouldUpdate remains false
+        fprintf(stderr, "Shared memory not mapped, cannot read. Returning default config data.\n");
+        // data.config_updated remains false
     }
 
     return data;
 }
 
-void WriteToSharedMemory(const PoseUpdateData& data) {
+void WriteToSharedMemory(const GunstockConfigData& data) {
     std::lock_guard<std::mutex> lock(g_sharedMemoryMutex);
 
     if (pBuf_ != nullptr) {
-        memcpy(pBuf_, &data, sizeof(PoseUpdateData));
+        memcpy(pBuf_, &data, sizeof(GunstockConfigData));
     } else {
         fprintf(stderr, "Shared memory not mapped, cannot write.\n");
     }
