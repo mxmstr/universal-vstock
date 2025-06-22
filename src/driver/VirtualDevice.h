@@ -1,7 +1,7 @@
 // VirtualDevice.h
 #pragma once
-#include <openvr_driver.h>
 #include <string>
+#include "openvr_driver.h" // Required for vr::TrackingResult_Uninitialized, vr::k_unTrackedDeviceIndexInvalid etc.
 
 class VirtualDevice : public vr::ITrackedDeviceServerDriver {
 private:

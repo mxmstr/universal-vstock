@@ -1,7 +1,7 @@
 #pragma once
 
 #include <mutex>
-#include "../include/PoseUpdateData.h" // Adjusted path if necessary
+#include "PoseUpdateData.h" // Adjusted path
 
 // Global mutex for synchronizing access to shared memory
 extern std::mutex g_sharedMemoryMutex;
