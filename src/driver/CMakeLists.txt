@@ -17,52 +17,72 @@ set(DRIVER_SOURCES
 add_library(VirtualGunstockDriver SHARED ${DRIVER_SOURCES})
 
 # Target include directories
-# The actual targets OpenVR::openvr and VirtualGunstockUI_lib (or a shared lib)
-# will be set up in the root CMakeLists.txt and VirtualGunstockUI/CMakeLists.txt
 target_include_directories(VirtualGunstockDriver PUBLIC
-    $<TARGET_PROPERTY:OpenVR::openvr,INTERFACE_INCLUDE_DIRECTORIES>
-    $<TARGET_PROPERTY:VirtualGunstockUI_lib,INTERFACE_INCLUDE_DIRECTORIES> # For IPCUtils and PoseUpdateData
-    ${CMAKE_CURRENT_SOURCE_DIR} # For driver's own headers
+    "${CMAKE_CURRENT_SOURCE_DIR}" # For driver's own headers (VirtualDevice.h, etc.)
+    # OpenVR::openvr_api and IPCUtils will propagate their include directories
 )
 
-# Link against OpenVR and the UI/Shared library (for IPC)
+# Link against OpenVR and IPCUtils
 target_link_libraries(VirtualGunstockDriver PRIVATE
-    OpenVR::openvr
-    VirtualGunstockUI_lib # For IPCUtils symbols
+    OpenVR::openvr_api # Provided by the OpenVR submodule, aliased in root CMakeLists.txt if needed
+    IPCUtils           # Our static IPC library
 )
 
 # Define platform-specific properties
 if(WIN32)
     set_target_properties(VirtualGunstockDriver PROPERTIES SUFFIX ".dll")
+    # Ensure symbols are exported. For MinGW, CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS might be needed.
+    # For MSVC, you typically use __declspec(dllexport) or a .def file.
+    # Assuming CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS is okay for now or handled by OpenVR's structure.
     target_compile_definitions(VirtualGunstockDriver PRIVATE "WIN32" "_WINDOWS" "CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS")
-    # Copy the DLL to a known location (e.g., build output directory/driver)
+
+    # Installation: DLL and manifest
+    install(TARGETS VirtualGunstockDriver
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}/driver_VirtualGunstockDriver/bin/win64"
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/driver_VirtualGunstockDriver/bin/win64"
+    )
+    install(FILES driver.vrdrivermanifest
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/driver_VirtualGunstockDriver"
+    )
+
+    # Post-build copy for easier testing during development (optional)
+    # This copies to a path relative to the build directory, not for installation
     add_custom_command(TARGET VirtualGunstockDriver POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:VirtualGunstockDriver>
-        ${CMAKE_BINARY_DIR}/driver_universal_vstock/bin/win64/driver_VirtualGunstockDriver.dll # Example path
+        "${CMAKE_BINARY_DIR}/bin/driver_VirtualGunstockDriver/bin/win64/driver_VirtualGunstockDriver.dll"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/driver.vrdrivermanifest"
+        "${CMAKE_BINARY_DIR}/bin/driver_VirtualGunstockDriver/driver.vrdrivermanifest"
+        COMMENT "Copying driver files to build output directory for testing."
     )
-    # Copy manifest file
-    configure_file(driver.vrdrivermanifest ${CMAKE_BINARY_DIR}/driver_universal_vstock/driver.vrdrivermanifest COPYONLY)
 
 elseif(LINUX)
     set_target_properties(VirtualGunstockDriver PROPERTIES PREFIX "lib" SUFFIX ".so")
     target_compile_options(VirtualGunstockDriver PRIVATE -fPIC)
-    # Copy the .so to a known location
-     add_custom_command(TARGET VirtualGunstockDriver POST_BUILD
+
+    # Installation: .so and manifest
+    install(TARGETS VirtualGunstockDriver
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/driver_VirtualGunstockDriver/bin/linux64"
+    )
+    install(FILES driver.vrdrivermanifest
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/driver_VirtualGunstockDriver"
+    )
+
+    # Post-build copy for easier testing (optional)
+    add_custom_command(TARGET VirtualGunstockDriver POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:VirtualGunstockDriver>
-        ${CMAKE_BINARY_DIR}/driver_universal_vstock/bin/linux64/libVirtualGunstockDriver.so # Example path
+        "${CMAKE_BINARY_DIR}/lib/driver_VirtualGunstockDriver/bin/linux64/libVirtualGunstockDriver.so"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/driver.vrdrivermanifest"
+        "${CMAKE_BINARY_DIR}/lib/driver_VirtualGunstockDriver/driver.vrdrivermanifest"
+        COMMENT "Copying driver files to build output directory for testing."
     )
-    # Copy manifest file
-    configure_file(driver.vrdrivermanifest ${CMAKE_BINARY_DIR}/driver_universal_vstock/driver.vrdrivermanifest COPYONLY)
 endif()
 
-# Installation (example, adjust as needed)
-install(TARGETS VirtualGunstockDriver
-    LIBRARY DESTINATION lib/driver_universal_vstock/bin # Or platform specific paths
-    RUNTIME DESTINATION lib/driver_universal_vstock/bin
-)
-
-install(FILES driver.vrdrivermanifest
-    DESTINATION lib/driver_universal_vstock
-)
+# Ensure dependent targets provide necessary include directories
+# This is typically handled by target_link_libraries with PUBLIC/INTERFACE dependencies
+# For example, IPCUtils should have:
+# target_include_directories(IPCUtils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+# And OpenVR::openvr_api is expected to do the same.
