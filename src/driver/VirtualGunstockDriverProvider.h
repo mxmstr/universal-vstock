@@ -27,4 +27,8 @@ private:
 
     // Stored Configuration
     GunstockConfigData m_config;
+
+    // Indices for physical controllers
+    vr::TrackedDeviceIndex_t m_unRightControllerIndex;
+    vr::TrackedDeviceIndex_t m_unLeftControllerIndex;
 };
